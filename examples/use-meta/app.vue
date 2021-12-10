@@ -7,6 +7,7 @@
         <Title>{{ dynamic }} title</Title>
         <Meta name="description" :content="`My page's ${dynamic} description`" />
         <Link rel="preload" href="/test.txt" as="script" />
+        <Script :src="`https://cdn.jsdelivr.net/npm/jquery@3.2?c=${dynamic}`" strategy="onLoad" @load="onLoad" />
       </Head>
     </Html>
 
@@ -25,7 +26,18 @@ export default {
         class: 'test'
       }
     })
-    return { dynamic: ref(49) }
+
+    const log = (e: any) => () => {
+      console.log(e)
+    }
+
+    if (typeof window !== 'undefined') {
+      document.addEventListener('readystatechange', () => {
+        console.log('readystatechange', document.readyState)
+      })
+    }
+
+    return { dynamic: ref(49), onLoad: log('load') }
   },
   head: {
     title: 'Another title'
