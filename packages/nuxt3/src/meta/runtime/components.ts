@@ -78,11 +78,44 @@ export const Script = defineComponent({
     /** @deprecated **/
     charset: String,
     /** @deprecated **/
-    language: String
+    language: String,
+    strategy: {
+      type: String,
+      default: 'immediate'
+    }
   },
-  setup: setupForUseMeta(script => ({
-    script: [script]
-  }))
+  setup (props: Props, ctx: SetupContext) {
+    const metaFactory = script => ({
+      script: [script]
+    })
+
+    let strategy = props.strategy
+
+    // if the document is already in the right state, change the strategy to `immediate`
+    if (process.client && document.readyState !== 'loading') {
+      strategy =
+      document.readyState === 'complete' || strategy === 'onInteractive'
+        ? 'immediate'
+        : strategy
+    }
+
+    if (strategy === 'immediate') {
+      useMeta(() => metaFactory({ ...removeUndefinedProps(props), ...ctx.attrs }))
+    } else if (process.client) {
+      document.addEventListener('readystatechange', () => {
+        const mapStrategy = {
+          onInteractive: 'interactive',
+          onLoad: 'complete'
+        } as const
+
+        if (document.readyState === mapStrategy[strategy]) {
+          useMeta(() => metaFactory({ ...removeUndefinedProps(props), ...ctx.attrs }))
+        }
+      })
+    }
+
+    return () => null
+  }
 })
 
 // <link>
