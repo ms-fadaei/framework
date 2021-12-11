@@ -1,5 +1,6 @@
 import { defineComponent } from 'vue'
 import type { SetupContext } from 'vue'
+import { needImmediateLoading, loadOnIdle, loadOnReadyStateChange } from './utils'
 import { useMeta } from './composables'
 
 type Props = Readonly<Record<string, any>>
@@ -85,33 +86,17 @@ export const Script = defineComponent({
     }
   },
   setup (props: Props, ctx: SetupContext) {
-    const metaFactory = script => ({
-      script: [script]
-    })
-
-    let strategy = props.strategy
-
-    // if the document is already in the right state, change the strategy to `immediate`
-    if (process.client && document.readyState !== 'loading') {
-      strategy =
-      document.readyState === 'complete' || strategy === 'onInteractive'
-        ? 'immediate'
-        : strategy
-    }
+    const loadScript = () => useMeta(() => ({ script: [{ ...removeUndefinedProps(props), ...ctx.attrs }] }))
+    const strategy = needImmediateLoading(props.strategy) ? 'immediate' : props.strategy
 
     if (strategy === 'immediate') {
-      useMeta(() => metaFactory({ ...removeUndefinedProps(props), ...ctx.attrs }))
+      loadScript()
     } else if (process.client) {
-      document.addEventListener('readystatechange', () => {
-        const mapStrategy = {
-          onInteractive: 'interactive',
-          onLoad: 'complete'
-        } as const
-
-        if (document.readyState === mapStrategy[strategy]) {
-          useMeta(() => metaFactory({ ...removeUndefinedProps(props), ...ctx.attrs }))
-        }
-      })
+      if (strategy === 'onInteractive' || strategy === 'onLoad') {
+        loadOnReadyStateChange(strategy, loadScript)
+      } else if (strategy === 'onIdle') {
+        loadOnIdle(loadScript)
+      }
     }
 
     return () => null
